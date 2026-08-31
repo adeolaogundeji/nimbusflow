@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props Directory.Packages.props NimbusFlow.slnx ./
+COPY .editorconfig Directory.Build.props Directory.Packages.props global.json NimbusFlow.slnx ./
 COPY src/NimbusFlow.Domain/NimbusFlow.Domain.csproj src/NimbusFlow.Domain/packages.lock.json src/NimbusFlow.Domain/
 COPY src/NimbusFlow.Application/NimbusFlow.Application.csproj src/NimbusFlow.Application/packages.lock.json src/NimbusFlow.Application/
 COPY src/NimbusFlow.Infrastructure/NimbusFlow.Infrastructure.csproj src/NimbusFlow.Infrastructure/packages.lock.json src/NimbusFlow.Infrastructure/
