@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="NimbusFlow is a cloud-native workflow automation platform built with ASP.NET Core, Azure SQL, and Azure Service Bus.">
+  <title>NimbusFlow · Workflow Control Plane</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="NimbusFlow home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Nimbus<span>Flow</span></span>
+    </a>
+    <nav>
+      <a href="#workflows">Workflows</a>
+      <a href="#jobs">Operations</a>
+      <a href="/openapi/v1.json" target="_blank" rel="noreferrer">OpenAPI</a>
+    </nav>
+    <div class="health-pill"><span id="health-dot"></span><span id="health-label">Checking platform</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow"><span></span> Azure-native orchestration</div>
+      <h1>Async work,<br><em>under control.</em></h1>
+      <p class="hero-copy">Submit durable workflows in milliseconds. NimbusFlow handles execution, retries, idempotency, and progress tracking away from your request path.</p>
+      <div class="architecture-strip" aria-label="Platform technologies">
+        <span>.NET 10</span><b>→</b><span>ASP.NET Core</span><b>→</b><span>Service Bus</span><b>→</b><span>Azure SQL</span>
+      </div>
+    </section>
+
+    <section class="control-grid" id="workflows">
+      <article class="launch-card panel">
+        <div class="panel-heading">
+          <div><p class="kicker">Control plane</p><h2>Launch a workflow</h2></div>
+          <span class="async-badge">202 · ASYNC</span>
+        </div>
+        <form id="launch-form">
+          <label for="workflow-type">Workflow type</label>
+          <div class="select-wrap"><select id="workflow-type" required></select></div>
+          <div id="workflow-description" class="workflow-description">Loading workflow catalog…</div>
+          <label for="payload">Input payload</label>
+          <textarea id="payload" rows="7" spellcheck="false" required></textarea>
+          <label class="failure-toggle">
+            <input id="simulate-failure" type="checkbox">
+            <span class="toggle"></span>
+            <span><strong>Resilience demo</strong><small>Fail once at step 2, then recover automatically</small></span>
+          </label>
+          <button class="primary-button" type="submit" id="submit-button">
+            <span>Queue workflow</span><span aria-hidden="true">↗</span>
+          </button>
+        </form>
+      </article>
+
+      <aside class="signal-panel panel">
+        <div class="panel-heading">
+          <div><p class="kicker">Live topology</p><h2>Execution signal</h2></div>
+          <span class="live-dot">LIVE</span>
+        </div>
+        <div class="topology" aria-label="API to queue to worker to database architecture">
+          <div class="topology-node active"><span>01</span><div><strong>API ingress</strong><small>Validated + persisted</small></div></div>
+          <div class="connector"><i></i><i></i><i></i></div>
+          <div class="topology-node"><span>02</span><div><strong>Durable queue</strong><small>Backpressure isolated</small></div></div>
+          <div class="connector"><i></i><i></i><i></i></div>
+          <div class="topology-node"><span>03</span><div><strong>Worker pool</strong><small>Concurrent execution</small></div></div>
+          <div class="connector"><i></i><i></i><i></i></div>
+          <div class="topology-node"><span>04</span><div><strong>State store</strong><small>Auditable timeline</small></div></div>
+        </div>
+        <div class="resilience-note">
+          <span class="shield">◇</span>
+          <div><strong>Transactional outbox active</strong><p>Database commits and queue publication remain consistent through transient failures.</p></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="operations" id="jobs">
+      <div class="section-heading">
+        <div><p class="kicker">Operations</p><h2>Workflow telemetry</h2></div>
+        <button class="ghost-button" id="refresh-button">Refresh <span>↻</span></button>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card"><span class="stat-label">Total jobs</span><strong id="stat-total">—</strong><small>All durable submissions</small></article>
+        <article class="stat-card"><span class="stat-label">In flight</span><strong id="stat-active">—</strong><small><i class="cyan"></i> Queued + running</small></article>
+        <article class="stat-card"><span class="stat-label">Succeeded</span><strong id="stat-succeeded">—</strong><small><i class="green"></i> Completed workflows</small></article>
+        <article class="stat-card"><span class="stat-label">Success rate</span><strong id="stat-rate">—</strong><small><i class="violet"></i> Terminal executions</small></article>
+      </div>
+
+      <div class="jobs-panel panel">
+        <div class="jobs-toolbar">
+          <div class="filter-group" id="status-filters">
+            <button class="filter active" data-status="">All</button>
+            <button class="filter" data-status="Running">Running</button>
+            <button class="filter" data-status="Succeeded">Succeeded</button>
+            <button class="filter" data-status="Failed">Failed</button>
+          </div>
+          <span id="last-updated">Waiting for telemetry</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Job</th><th>Workflow</th><th>Status</th><th>Progress</th><th>Attempt</th><th>Created</th></tr></thead>
+            <tbody id="jobs-body"><tr><td colspan="6" class="empty">Connecting to the control plane…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="drawer-backdrop" class="drawer-backdrop"></div>
+  <aside id="detail-drawer" class="detail-drawer" aria-hidden="true">
+    <button class="drawer-close" id="drawer-close" aria-label="Close">×</button>
+    <p class="kicker">Execution detail</p>
+    <h2 id="drawer-title">Workflow job</h2>
+    <div id="drawer-summary"></div>
+    <div class="drawer-actions" id="drawer-actions"></div>
+    <h3>Event timeline</h3>
+    <div class="timeline" id="event-timeline"></div>
+  </aside>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

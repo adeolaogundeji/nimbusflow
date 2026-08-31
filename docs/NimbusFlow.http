@@ -1,0 +1,45 @@
+@host = http://localhost:8080
+@jobId = replace-after-submit
+
+### Discover workflows
+GET {{host}}/api/v1/workflows
+
+### Submit a successful export
+POST {{host}}/api/v1/jobs
+Content-Type: application/json
+Idempotency-Key: local-export-001
+
+{
+  "workflowType": "data-export",
+  "input": {
+    "dataset": "customers",
+    "format": "parquet",
+    "recordCount": 24000
+  }
+}
+
+### Submit a job that fails once and recovers
+POST {{host}}/api/v1/jobs
+Content-Type: application/json
+Idempotency-Key: local-resilience-demo-001
+
+{
+  "workflowType": "document-processing",
+  "input": {
+    "documentName": "quarterly-report.pdf",
+    "simulateFailureAtStep": 2,
+    "failForAttempts": 1
+  }
+}
+
+### Get a job
+GET {{host}}/api/v1/jobs/{{jobId}}
+
+### Get timeline
+GET {{host}}/api/v1/jobs/{{jobId}}/events
+
+### Retry a failed job
+POST {{host}}/api/v1/jobs/{{jobId}}/retry
+
+### Cancel queued or running work
+POST {{host}}/api/v1/jobs/{{jobId}}/cancel

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NimbusFlow.Api/NimbusFlow.Api.csproj" />
+    <Project Path="src/NimbusFlow.Application/NimbusFlow.Application.csproj" />
+    <Project Path="src/NimbusFlow.Domain/NimbusFlow.Domain.csproj" />
+    <Project Path="src/NimbusFlow.Infrastructure/NimbusFlow.Infrastructure.csproj" />
+    <Project Path="src/NimbusFlow.Worker/NimbusFlow.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NimbusFlow.IntegrationTests/NimbusFlow.IntegrationTests.csproj" />
+    <Project Path="tests/NimbusFlow.UnitTests/NimbusFlow.UnitTests.csproj" />
+  </Folder>
+</Solution>

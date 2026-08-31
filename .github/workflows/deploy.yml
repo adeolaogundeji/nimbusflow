@@ -1,0 +1,115 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: Azure region
+        required: true
+        default: centralus
+        type: string
+      base_name:
+        description: Lowercase resource prefix
+        required: true
+        default: nimbusflow
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nimbusflow-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Provision and release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Provision core Azure resources
+        id: core
+        shell: bash
+        env:
+          SQL_ADMIN_LOGIN: ${{ secrets.SQL_ADMIN_LOGIN }}
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+        run: |
+          outputs=$(az deployment sub create \
+            --name "nimbusflow-core-${GITHUB_RUN_NUMBER}" \
+            --location "${{ inputs.location }}" \
+            --template-file infra/azure/main.bicep \
+            --parameters baseName="${{ inputs.base_name }}" \
+                         location="${{ inputs.location }}" \
+                         sqlAdminLogin="$SQL_ADMIN_LOGIN" \
+                         sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
+            --query properties.outputs \
+            --output json)
+          echo "resource_group=$(jq -r '.resourceGroupName.value' <<< "$outputs")" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$(jq -r '.acrName.value' <<< "$outputs")" >> "$GITHUB_OUTPUT"
+          echo "acr_server=$(jq -r '.acrLoginServer.value' <<< "$outputs")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push immutable images
+        shell: bash
+        run: |
+          az acr login --name "${{ steps.core.outputs.acr_name }}"
+          docker build --file src/NimbusFlow.Api/Dockerfile \
+            --tag "${{ steps.core.outputs.acr_server }}/nimbusflow-api:${GITHUB_SHA}" .
+          docker build --file src/NimbusFlow.Worker/Dockerfile \
+            --tag "${{ steps.core.outputs.acr_server }}/nimbusflow-worker:${GITHUB_SHA}" .
+          docker push "${{ steps.core.outputs.acr_server }}/nimbusflow-api:${GITHUB_SHA}"
+          docker push "${{ steps.core.outputs.acr_server }}/nimbusflow-worker:${GITHUB_SHA}"
+
+      - name: Deploy Container Apps revision
+        id: apps
+        shell: bash
+        env:
+          SQL_ADMIN_LOGIN: ${{ secrets.SQL_ADMIN_LOGIN }}
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+        run: |
+          api_url=$(az deployment group create \
+            --resource-group "${{ steps.core.outputs.resource_group }}" \
+            --name "nimbusflow-apps-${GITHUB_RUN_NUMBER}" \
+            --template-file infra/azure/apps.bicep \
+            --parameters baseName="${{ inputs.base_name }}" \
+                         apiImage="${{ steps.core.outputs.acr_server }}/nimbusflow-api:${GITHUB_SHA}" \
+                         workerImage="${{ steps.core.outputs.acr_server }}/nimbusflow-worker:${GITHUB_SHA}" \
+                         sqlAdminLogin="$SQL_ADMIN_LOGIN" \
+                         sqlAdminPassword="$SQL_ADMIN_PASSWORD" \
+            --query properties.outputs.apiUrl.value \
+            --output tsv)
+          echo "api_url=$api_url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployed health endpoint
+        shell: bash
+        run: |
+          for attempt in {1..18}; do
+            if curl --fail --silent --show-error "${{ steps.apps.outputs.api_url }}/health/ready"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Deployment did not become ready within three minutes." >&2
+          exit 1
+
+      - name: Publish deployment summary
+        shell: bash
+        run: |
+          {
+            echo "## NimbusFlow deployment"
+            echo ""
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Resource group: \`${{ steps.core.outputs.resource_group }}\`"
+            echo "- Dashboard: ${{ steps.apps.outputs.api_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
