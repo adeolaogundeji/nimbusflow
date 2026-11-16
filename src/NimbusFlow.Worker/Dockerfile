@@ -15,7 +15,7 @@ RUN dotnet publish src/NimbusFlow.Worker/NimbusFlow.Worker.csproj \
     --no-restore \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+FROM mcr.microsoft.com/dotnet/runtime:11.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 USER $APP_UID
